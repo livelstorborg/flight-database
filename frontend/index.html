@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flight Database</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="app-header">
+    <h1>Flight Database</h1>
+    <p class="subtitle">Search aircraft models or flight numbers</p>
+  </header>
+
+  <main class="container">
+    <div class="tabs">
+      <button type="button" class="tab active" data-mode="aircraft">Aircraft Model</button>
+      <button type="button" class="tab" data-mode="flight">Flight Number</button>
+    </div>
+
+    <form id="search-form" class="search-form">
+      <input id="search-input" type="text" placeholder="e.g. Boeing 737 MAX" autocomplete="off" required>
+      <button type="submit">Search</button>
+    </form>
+
+    <div id="status" class="status"></div>
+    <div id="results" class="results"></div>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+PROJECT_DIR="$HOME/Developer/flight-database"
+VENV_DIR="$PROJECT_DIR/.venv"
+PORT=8000
+URL="http://127.0.0.1:$PORT"
+
+if [ ! -d "$VENV_DIR" ]; then
+  echo "Virtual environment not found in $VENV_DIR." >&2
+  echo "Run: cd $PROJECT_DIR && python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt" >&2
+  exit 1
+fi
+
+cd "$PROJECT_DIR"
+
+# Poll the server in the background and open the browser once it responds,
+# so startup doesn't block on the browser launch.
+(
+  for _ in $(seq 1 50); do
+    if curl -s -o /dev/null "$URL"; then
+      open "$URL"
+      break
+    fi
+    sleep 0.2
+  done
+) &
+
+exec "$VENV_DIR/bin/uvicorn" backend.main:app --host 127.0.0.1 --port "$PORT"

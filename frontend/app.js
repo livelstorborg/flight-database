@@ -87,10 +87,14 @@ function renderAircraft(data) {
 }
 
 function renderFlight(data) {
-  resultsEl.innerHTML = data.flights.map(flightCard).join("");
+  resultsEl.innerHTML = data.flights.map((f, i) => flightCard(f, i)).join("");
+  data.flights.forEach((f, i) => drawRoute(f, `globe-${i}`));
 }
 
-function flightCard(f) {
+function flightCard(f, i) {
+  const waypoints = routeWaypoints(f);
+  const globeId = `globe-${i}`;
+
   return `
     <div class="card flight-card">
       <div class="flight-header">
@@ -112,7 +116,124 @@ function flightCard(f) {
         </div>
       </div>
       ${f.aircraft_model ? `<div class="aircraft-line">Aircraft: ${escapeHtml(f.aircraft_model)}${f.aircraft_reg ? " · reg " + escapeHtml(f.aircraft_reg) : ""}</div>` : ""}
+      ${waypoints.length >= 2 ? `<div class="globe-container"><div id="${globeId}" class="globe"></div></div>` : ""}
     </div>`;
+}
+
+// Waypoints along the route, in flight order. Aviationstack's flight-status
+// endpoint only reports departure + arrival for a given flight number (no
+// technical-stop data on the free tier), so this is currently always a
+// single [departure, arrival] pair. The rendering below already draws one
+// great-circle segment per consecutive waypoint pair, so a future data
+// source that reports a layover only needs to add a middle waypoint here —
+// no changes needed in drawRoute.
+function routeWaypoints(f) {
+  const points = [];
+  if (f.departure.airport && f.departure.airport.lat != null) {
+    points.push({ ...f.departure.airport, role: "departure" });
+  }
+  if (f.arrival.airport && f.arrival.airport.lat != null) {
+    points.push({ ...f.arrival.airport, role: "arrival" });
+  }
+  return points;
+}
+
+function drawRoute(f, elementId) {
+  const waypoints = routeWaypoints(f);
+  if (waypoints.length < 2 || typeof Plotly === "undefined") return;
+
+  const el = document.getElementById(elementId);
+  if (!el) return;
+
+  const segmentTraces = [];
+  for (let i = 0; i < waypoints.length - 1; i++) {
+    const a = waypoints[i];
+    const b = waypoints[i + 1];
+    const arc = greatCirclePoints(a.lat, a.lon, b.lat, b.lon, 100);
+    segmentTraces.push({
+      type: "scattergeo",
+      mode: "lines",
+      lat: arc.map((p) => p[0]),
+      lon: arc.map((p) => p[1]),
+      line: { color: "#ff4d4d", width: 2, dash: "dot" },
+      hoverinfo: "skip",
+      showlegend: false,
+    });
+  }
+
+  const markerTrace = {
+    type: "scattergeo",
+    mode: "markers+text",
+    lat: waypoints.map((w) => w.lat),
+    lon: waypoints.map((w) => w.lon),
+    text: waypoints.map((w) => w.iata || w.icao || ""),
+    textposition: "top center",
+    textfont: { color: "#e6e9f2", size: 12 },
+    marker: { size: 7, color: "#4da3ff", line: { color: "#0b1020", width: 1 } },
+    hoverinfo: "text",
+    showlegend: false,
+  };
+
+  const midLat = waypoints.reduce((sum, w) => sum + w.lat, 0) / waypoints.length;
+  const midLon = waypoints.reduce((sum, w) => sum + w.lon, 0) / waypoints.length;
+
+  Plotly.newPlot(
+    el,
+    [...segmentTraces, markerTrace],
+    {
+      geo: {
+        projection: { type: "orthographic", rotation: { lon: midLon, lat: midLat } },
+        showland: true,
+        landcolor: "#1b2340",
+        showocean: true,
+        oceancolor: "#0b1020",
+        showcountries: true,
+        countrycolor: "#2a355c",
+        showcoastlines: false,
+        bgcolor: "rgba(0,0,0,0)",
+      },
+      paper_bgcolor: "rgba(0,0,0,0)",
+      margin: { t: 0, b: 0, l: 0, r: 0 },
+    },
+    { displayModeBar: false, responsive: true }
+  );
+}
+
+// Great-circle interpolation (spherical slerp) so the route follows the
+// Earth's curvature instead of cutting a straight chord through the globe.
+function greatCirclePoints(lat1, lon1, lat2, lon2, n = 100) {
+  const toRad = (d) => (d * Math.PI) / 180;
+  const toDeg = (r) => (r * 180) / Math.PI;
+
+  const phi1 = toRad(lat1);
+  const lam1 = toRad(lon1);
+  const phi2 = toRad(lat2);
+  const lam2 = toRad(lon2);
+
+  const d =
+    2 *
+    Math.asin(
+      Math.sqrt(
+        Math.sin((phi2 - phi1) / 2) ** 2 +
+          Math.cos(phi1) * Math.cos(phi2) * Math.sin((lam2 - lam1) / 2) ** 2
+      )
+    );
+
+  if (d === 0) return [[lat1, lon1]];
+
+  const points = [];
+  for (let i = 0; i <= n; i++) {
+    const f = i / n;
+    const A = Math.sin((1 - f) * d) / Math.sin(d);
+    const B = Math.sin(f * d) / Math.sin(d);
+    const x = A * Math.cos(phi1) * Math.cos(lam1) + B * Math.cos(phi2) * Math.cos(lam2);
+    const y = A * Math.cos(phi1) * Math.sin(lam1) + B * Math.cos(phi2) * Math.sin(lam2);
+    const z = A * Math.sin(phi1) + B * Math.sin(phi2);
+    const phi = Math.atan2(z, Math.sqrt(x * x + y * y));
+    const lam = Math.atan2(y, x);
+    points.push([toDeg(phi), toDeg(lam)]);
+  }
+  return points;
 }
 
 function fmtTime(t) {

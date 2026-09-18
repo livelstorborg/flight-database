@@ -11,7 +11,11 @@
 A local web app for looking things up about flying. Search an aircraft model and get its photo and specs straight from Wikipedia. Search a flight number and get its route — departure and arrival airports, terminal, gate, and actual times — drawn as a red dotted great-circle line on a spinning globe. Runs entirely on your own machine; no accounts, no database to set up.
 
 <p align="center">
-  <img src="assets/screenshot.svg" alt="Flight Database showing a British Airways flight's route on a globe" width="720">
+  <img src="assets/aircraft-screenshot.svg" alt="Flight Database showing specs and a photo of the Airbus Beluga" width="720">
+</p>
+
+<p align="center">
+  <img src="assets/flight-screenshot.svg" alt="Flight Database showing a British Airways flight's route on a globe" width="720">
 </p>
 
 ## Features
